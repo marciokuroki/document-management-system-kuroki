@@ -32,7 +32,7 @@ export default function DocumentList({ documents, owner, onDownloadError }) {
             </time>
           </span>
           <DownloadButton
-            document={document}
+            documentMetadata={document}
             owner={owner}
             onError={onDownloadError}
           />

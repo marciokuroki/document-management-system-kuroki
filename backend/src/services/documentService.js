@@ -1,8 +1,7 @@
-const fs = require('node:fs/promises');
-
 class DocumentService {
-  constructor({ documentRepository }) {
+  constructor({ documentRepository, localStorage }) {
     this.documentRepository = documentRepository;
+    this.localStorage = localStorage;
   }
 
   async createDocument({ file, owner, id }) {
@@ -20,7 +19,7 @@ class DocumentService {
     try {
       return this.documentRepository.create(document);
     } catch (error) {
-      await fs.unlink(file.path).catch(() => {});
+      await this.localStorage.remove(file.path);
       throw error;
     }
   }
@@ -34,6 +33,7 @@ class DocumentService {
     if (!document || document.owner !== owner) {
       return null;
     }
+    document.storagePath = this.localStorage.validatePath(document.storagePath);
     return document;
   }
 

@@ -76,7 +76,7 @@ export default function App() {
               <p className="eyebrow">Adicionar ao arquivo</p>
               <h2 id="upload-heading">Envie um novo documento</h2>
             </div>
-            <span className="file-limit">Máximo 10 MB</span>
+            <span className="file-limit">Limite configurado pelo servidor</span>
           </div>
           <UploadComponent onUpload={handleUpload} disabled={uploading || loading} />
         </section>

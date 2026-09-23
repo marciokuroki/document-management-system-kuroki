@@ -1,6 +1,6 @@
 function getOwner(request) {
   const owner = request.get('X-User-Id');
-  if (!owner || owner.length > 100) {
+  if (!owner?.trim() || owner.length > 100) {
     const error = new Error('Identificador de usuário inválido.');
     error.statusCode = 400;
     error.code = 'INVALID_REQUEST';
@@ -19,6 +19,12 @@ function createDocumentController({ documentService }) {
       const owner = getOwner(request);
       if (!request.file || !request.documentId) {
         const error = new Error('Arquivo é obrigatório.');
+        error.statusCode = 400;
+        error.code = 'INVALID_REQUEST';
+        throw error;
+      }
+      if (request.file.size === 0 || !request.file.originalname?.trim()) {
+        const error = new Error('Arquivo vazio ou nome inválido.');
         error.statusCode = 400;
         error.code = 'INVALID_REQUEST';
         throw error;
@@ -54,12 +60,15 @@ function createDocumentController({ documentService }) {
         throw error;
       }
 
+      response.set('X-Content-Type-Options', 'nosniff');
       response.type(document.mimeType || 'application/octet-stream');
-      response.attachment(document.originalName.replace(/[\r\n"\\]/g, '_'));
+      response.attachment(document.originalName.replace(/[\\\0\r\n"]/g, '_'));
       return response.sendFile(document.storagePath, (error) => {
         if (error && !response.headersSent) {
-          error.statusCode = 404;
-          error.code = 'DOCUMENT_NOT_FOUND';
+          if (error.code === 'ENOENT') {
+            error.statusCode = 404;
+            error.code = 'DOCUMENT_NOT_FOUND';
+          }
           next(error);
         }
       });
