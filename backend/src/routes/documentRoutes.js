@@ -30,7 +30,20 @@ function createDocumentRouter() {
   const documentService = new DocumentService({ documentRepository });
   const controller = createDocumentController({ documentService });
 
-  router.post('/upload', upload.single('file'), controller.upload);
+  router.post(
+    '/upload',
+    (request, _response, next) => {
+      if (!request.is('multipart/form-data')) {
+        const error = new Error('Tipo de conteúdo inválido.');
+        error.statusCode = 415;
+        error.code = 'UNSUPPORTED_MEDIA_TYPE';
+        return next(error);
+      }
+      return next();
+    },
+    upload.single('file'),
+    controller.upload
+  );
   router.get('/documents', controller.list);
   router.get('/documents/:id/download', controller.download);
 
