@@ -22,7 +22,12 @@ export default function DownloadButton({ document, owner, onError }) {
   }
 
   return (
-    <button type="button" onClick={handleDownload} disabled={downloading}>
+    <button
+      className="download-button"
+      type="button"
+      onClick={handleDownload}
+      disabled={downloading}
+    >
       {downloading ? 'Baixando...' : 'Baixar'}
     </button>
   );
