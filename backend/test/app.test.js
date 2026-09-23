@@ -76,6 +76,18 @@ test('rejeita requisições sem usuário', async () => {
   assert.equal((await response.json()).error.code, 'INVALID_REQUEST');
 });
 
+test('rejeita upload sem usuário e não deixa arquivo órfão', async () => {
+  const fileCountBeforeUpload = fs.readdirSync(storageDirectory).length;
+  const response = await fetch(`${baseUrl}/upload`, {
+    method: 'POST',
+    body: createUploadBody('sem owner'),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, 'INVALID_REQUEST');
+  assert.equal(fs.readdirSync(storageDirectory).length, fileCountBeforeUpload);
+});
+
 test('rejeita arquivo acima do limite configurado', async () => {
   const response = await fetch(`${baseUrl}/upload`, {
     method: 'POST',
@@ -92,6 +104,48 @@ test('retorna erro quando upload não contém arquivo', async () => {
     method: 'POST',
     headers: { 'X-User-Id': 'user-1' },
     body: new FormData(),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, 'INVALID_REQUEST');
+});
+
+test('rejeita arquivo vazio', async () => {
+  const fileCountBeforeUpload = fs.readdirSync(storageDirectory).length;
+  const response = await fetch(`${baseUrl}/upload`, {
+    method: 'POST',
+    headers: { 'X-User-Id': 'user-1' },
+    body: createUploadBody(''),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, 'INVALID_REQUEST');
+  assert.equal(fs.readdirSync(storageDirectory).length, fileCountBeforeUpload);
+});
+
+test('rejeita arquivo sem nome original', async () => {
+  const formData = new FormData();
+  formData.append('file', new Blob(['conteudo'], { type: 'text/plain' }), ' ');
+
+  const response = await fetch(`${baseUrl}/upload`, {
+    method: 'POST',
+    headers: { 'X-User-Id': 'user-1' },
+    body: formData,
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, 'INVALID_REQUEST');
+});
+
+test('rejeita mais de um arquivo por requisição', async () => {
+  const formData = new FormData();
+  formData.append('file', new Blob(['um'], { type: 'text/plain' }), 'one.txt');
+  formData.append('file', new Blob(['dois'], { type: 'text/plain' }), 'two.txt');
+
+  const response = await fetch(`${baseUrl}/upload`, {
+    method: 'POST',
+    headers: { 'X-User-Id': 'user-1' },
+    body: formData,
   });
 
   assert.equal(response.status, 400);
@@ -123,6 +177,25 @@ test('não permite download por outro usuário ou por ID inválido', async () =>
   });
   assert.equal(missingResponse.status, 404);
   assert.equal((await missingResponse.json()).error.code, 'DOCUMENT_NOT_FOUND');
+});
+
+test('retorna erro quando arquivo físico não existe', async () => {
+  const filesBeforeUpload = new Set(fs.readdirSync(storageDirectory));
+  const uploadResponse = await fetch(`${baseUrl}/upload`, {
+    method: 'POST',
+    headers: { 'X-User-Id': 'user-1' },
+    body: createUploadBody('removido'),
+  });
+  const document = await uploadResponse.json();
+  const [newFile] = fs.readdirSync(storageDirectory).filter((file) => !filesBeforeUpload.has(file));
+  fs.rmSync(path.join(storageDirectory, newFile));
+
+  const response = await fetch(`${baseUrl}/documents/${document.id}/download`, {
+    headers: { 'X-User-Id': 'user-1' },
+  });
+
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error.code, 'DOCUMENT_NOT_FOUND');
 });
 
 test('responde ao health check', async () => {
