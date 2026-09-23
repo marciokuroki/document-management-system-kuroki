@@ -78,7 +78,7 @@ export default function App() {
             </div>
             <span className="file-limit">Máximo 10 MB</span>
           </div>
-          <UploadComponent onUpload={handleUpload} disabled={uploading} />
+          <UploadComponent onUpload={handleUpload} disabled={uploading || loading} />
         </section>
 
         {error && <p className="feedback feedback-error" role="alert">{error}</p>}
