@@ -31,6 +31,15 @@ function createUploadBody(content, filename = 'document.txt') {
   return formData;
 }
 
+async function uploadDocument({ owner = 'user-1', content = 'documento', filename = 'document.txt' } = {}) {
+  const response = await fetch(`${baseUrl}/upload`, {
+    method: 'POST',
+    headers: { 'X-User-Id': owner },
+    body: createUploadBody(content, filename),
+  });
+  return { response, document: await response.json() };
+}
+
 // Teste de fumaça do seed: garante que o app Express foi exportado.
 // Novos testes serão adicionados durante os Steps 2, 6 e 7 com auxílio do Copilot.
 test('o app backend é exportado', () => {
@@ -38,34 +47,38 @@ test('o app backend é exportado', () => {
   assert.strictEqual(typeof app, 'function', 'o app Express deve ser uma função');
 });
 
-test('faz upload, lista por usuário e baixa o documento', async () => {
-  const uploadResponse = await fetch(`${baseUrl}/upload`, {
-    method: 'POST',
-    headers: { 'X-User-Id': 'user-1' },
-    body: createUploadBody('documento'),
-  });
-  const uploadedDocument = await uploadResponse.json();
+test('faz upload de documento', async () => {
+  const { response, document } = await uploadDocument({ owner: 'upload-user', content: 'documento' });
 
-  assert.equal(uploadResponse.status, 201);
-  assert.equal(uploadedDocument.originalName, 'document.txt');
-  assert.equal(uploadedDocument.owner, 'user-1');
-  assert.equal(uploadedDocument.size, 9);
+  assert.equal(response.status, 201);
+  assert.equal(document.originalName, 'document.txt');
+  assert.equal(document.owner, 'upload-user');
+  assert.equal(document.size, 9);
+});
+
+test('lista documentos do usuário autenticado', async () => {
+  const { document } = await uploadDocument({ owner: 'list-user', content: 'listagem' });
 
   const listResponse = await fetch(`${baseUrl}/documents`, {
-    headers: { 'X-User-Id': 'user-1' },
+    headers: { 'X-User-Id': 'list-user' },
   });
-  assert.deepEqual(await listResponse.json(), [uploadedDocument]);
+  assert.deepEqual(await listResponse.json(), [document]);
 
   const otherUserResponse = await fetch(`${baseUrl}/documents`, {
-    headers: { 'X-User-Id': 'user-2' },
+    headers: { 'X-User-Id': 'other-list-user' },
   });
   assert.deepEqual(await otherUserResponse.json(), []);
+});
 
-  const downloadResponse = await fetch(`${baseUrl}/documents/${uploadedDocument.id}/download`, {
-    headers: { 'X-User-Id': 'user-1' },
+test('baixa documento enviado pelo usuário', async () => {
+  const { document } = await uploadDocument({ owner: 'download-user', content: 'download' });
+
+  const downloadResponse = await fetch(`${baseUrl}/documents/${document.id}/download`, {
+    headers: { 'X-User-Id': 'download-user' },
   });
+
   assert.equal(downloadResponse.status, 200);
-  assert.equal(await downloadResponse.text(), 'documento');
+  assert.equal(await downloadResponse.text(), 'download');
   assert.match(downloadResponse.headers.get('content-disposition'), /attachment/);
 });
 
